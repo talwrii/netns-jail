@@ -1,7 +1,6 @@
 """
 netns-jail: run a process in its own network namespace jail.
 """
-
 import argparse
 import atexit
 import os
@@ -16,7 +15,6 @@ from typing import List, Optional
 # ---------------------------------------------------------------------------
 # Tool path resolution
 # ---------------------------------------------------------------------------
-
 def _require(tool: str) -> str:
     """Resolve a tool via PATH, raising a clear error if not found."""
     path = shutil.which(tool)
@@ -28,7 +26,6 @@ def _require(tool: str) -> str:
 # ---------------------------------------------------------------------------
 # Data types
 # ---------------------------------------------------------------------------
-
 class Forward:
     """A unix-domain socket -> TCP forward into the jail."""
 
@@ -40,7 +37,6 @@ class Forward:
     @classmethod
     def parse(cls, spec: str) -> "Forward":
         """Parse 'unix.sock:host:port'."""
-        # rsplit from the right so unix socket paths are left intact
         parts = spec.rsplit(":", 2)
         if len(parts) != 3:
             raise ValueError(
@@ -60,7 +56,6 @@ class Forward:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
 _debug = False
 
 
@@ -98,7 +93,6 @@ def _default_iface() -> str:
 # ---------------------------------------------------------------------------
 # Jail
 # ---------------------------------------------------------------------------
-
 class NetnsJail:
     """Manages the lifecycle of a single network-namespace jail."""
 
@@ -127,7 +121,6 @@ class NetnsJail:
     # ------------------------------------------------------------------
     # Setup
     # ------------------------------------------------------------------
-
     def setup(self) -> None:
         ip = _require("ip")
         _sudo([ip, "netns", "add", self.name])
@@ -139,7 +132,6 @@ class NetnsJail:
         ip       = _require("ip")
         iptables = _require("iptables")
         sysctl   = _require("sysctl")
-
         self._nat_iface = _default_iface()
         dev = self._nat_iface
 
@@ -173,30 +165,44 @@ class NetnsJail:
     # ------------------------------------------------------------------
     # Forwarding
     # ------------------------------------------------------------------
-
     def start_forwards(self) -> None:
+        """For each --forward spec, run a socat inside the jail's netns.
+
+        socat listens on the unix socket (which lives on the host filesystem,
+        shared with the jail since netns does not isolate filesystems) and
+        connects to the TCP address inside the jail. This avoids socat's
+        experimental `netns=` option, which isn't available in older versions.
+        """
+        sudo  = _require("sudo")
+        ip    = _require("ip")
         socat = _require("socat")
 
         for fwd in self.forwards:
             if os.path.exists(fwd.unix_socket):
                 os.unlink(fwd.unix_socket)
 
-            # socat has a native netns option on TCP addresses, so we can
-            # bridge directly without any EXEC/SYSTEM subprocess hackery.
-            # Requires socat to run as root to enter the namespace.
+            # Make the socket owned by the calling user so they can connect
+            # to it without sudo. The `,user=` option on UNIX-LISTEN chowns
+            # after bind.
+            user = _calling_user()
             socat_cmd = [
-                _require("sudo"), socat,
-                f"UNIX-LISTEN:{fwd.unix_socket},fork,reuseaddr",
-                f"TCP:{fwd.host}:{fwd.port},netns={self.name}",
+                sudo, ip, "netns", "exec", self.name,
+                socat,
+                "-d0",  # only log fatal errors; suppresses the SIGTERM warning on cleanup
+                f"UNIX-LISTEN:{fwd.unix_socket},fork,reuseaddr,user={user}",
+                f"TCP:{fwd.host}:{fwd.port}",
             ]
             _log(socat_cmd)
-            proc = subprocess.Popen(socat_cmd)
+            proc = subprocess.Popen(
+                socat_cmd,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+            )
             self._socat_procs.append(proc)
 
     # ------------------------------------------------------------------
     # Run
     # ------------------------------------------------------------------
-
     def run(self, cmd: List[str]) -> int:
         user = _calling_user()
         full_cmd = [
@@ -209,7 +215,6 @@ class NetnsJail:
     # ------------------------------------------------------------------
     # Cleanup
     # ------------------------------------------------------------------
-
     def cleanup(self) -> None:
         if self._cleaned_up:
             return
@@ -253,13 +258,11 @@ class NetnsJail:
 # ---------------------------------------------------------------------------
 # Sudoers generation
 # ---------------------------------------------------------------------------
-
 def print_sudoers(nat: bool, forwards: List[Forward]) -> None:
     try:
         user = _calling_user()
     except Exception:
         user = "%user%"
-
     ip    = _require("ip")
     sudo  = _require("sudo")
     socat    = _require("socat") if forwards else None
@@ -281,7 +284,6 @@ def print_sudoers(nat: bool, forwards: List[Forward]) -> None:
         f"{user} ALL=(root) NOPASSWD: {ip} netns exec nj-{user[:5]}-* {sudo} -u {user} -- *",
         f"{user} ALL=(root) NOPASSWD: {sudo} -u {user} -- *",
     ]
-
     if nat:
         lines += [
             "",
@@ -298,21 +300,18 @@ def print_sudoers(nat: bool, forwards: List[Forward]) -> None:
             f"{user} ALL=(root) NOPASSWD: {iptables} -A FORWARD *",
             f"{user} ALL=(root) NOPASSWD: {iptables} -D FORWARD *",
         ]
-
     if forwards:
         lines += [
             "",
-            "# Unix socket forwarding (socat with netns option requires root)",
-            f"{user} ALL=(root) NOPASSWD: {socat} UNIX-LISTEN:* TCP:*",
+            "# Unix socket forwarding (socat runs inside the jail's netns)",
+            f"{user} ALL=(root) NOPASSWD: {ip} netns exec nj-{user[:5]}-* {socat} UNIX-LISTEN:* TCP:*",
         ]
-
     print("\n".join(lines))
 
 
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
-
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="netns-jail",
@@ -348,16 +347,13 @@ def main() -> None:
         "cmd", nargs=argparse.REMAINDER,
         help="Command to run inside the jail (after --)",
     )
-
     args = parser.parse_args()
 
     global _debug
     _debug = args.debug
 
-    # Strip leading '--' separator
     cmd = args.cmd[1:] if args.cmd and args.cmd[0] == "--" else args.cmd
 
-    # Parse --forward specs
     forwards = []
     for spec in args.forward:
         try:
