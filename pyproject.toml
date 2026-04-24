@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "netns-jail"
+version = "0.1.0"
+description = "Run a process in its own network namespace jail with optional unix socket forwarding"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = []
+
+[project.scripts]
+netns-jail = "netns_jail.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["netns_jail"]
