@@ -1,5 +1,5 @@
 # netns jail
-Run a process in its own network jail. Provide some convenience functions related to limited access.
+Run a process in its own network jail. Provide some convenience functions for limited access.
 
 This is unreviewed AI-generated code. However, I use it.
 
@@ -18,9 +18,14 @@ You can do this yourself with `netns` or use something like `docker` for complet
 pipx install netns-jail
 
 ## Usage
-netns-jail  -- nc -l 1000
+Run something listening on localhost inside the jail
+`netns-jail --forward /tmp/test.sock:localhost:1024  -- nc -l 1024`
 
-Forward outgoing traffic through your default route interfaces (does not give access to loopback)
-netns-jail --nat  -- nc -l 1000
+Connect to it form outside using the socket.
+`nc -U /tmp/test.sock`
 
-netns-jail --nat --forward unix-domain.sock:localhost:1000  -- nc -l 1000
+If you want to be able to connect to the internet and use dns use --nat and --dns respectively like so:
+
+`netns-jail --dns --nat curl https://www.google.com/`
+
+

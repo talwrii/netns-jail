@@ -1,18 +1,19 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = [ "setuptools>=68.0",]
+build-backend = "setuptools.build_meta"
 
 [project]
-name = "netns-jail"
+name = "dns-sock"
 version = "0.1.0"
-description = "Run a process in its own network namespace jail with optional unix socket forwarding"
+description = "Tunnel DNS queries over a unix datagram socket (dns-to-sock and sock-to-dns)"
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.9"
-license = { text = "MIT" }
 dependencies = []
 
 [project.scripts]
-netns-jail = "netns_jail.main:main"
+dns-to-sock = "dns_sock.main:main_dns_to_sock"
+sock-to-dns = "dns_sock.main:main_sock_to_dns"
 
-[tool.hatch.build.targets.wheel]
-packages = ["netns_jail"]
+[tool.setuptools]
+packages = [ "dns_sock",]
