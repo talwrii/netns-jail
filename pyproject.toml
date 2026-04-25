@@ -3,17 +3,16 @@ requires = [ "setuptools>=68.0",]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "dns-sock"
+name = "netns-jail"
 version = "0.1.0"
-description = "Tunnel DNS queries over a unix datagram socket (dns-to-sock and sock-to-dns)"
+description = "Run a process in its own network namespace jail with optional unix socket forwarding and DNS tunneling"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.9"
 dependencies = []
 
 [project.scripts]
-dns-to-sock = "dns_sock.main:main_dns_to_sock"
-sock-to-dns = "dns_sock.main:main_sock_to_dns"
+netns-jail = "netns_jail.main:main"
 
 [tool.setuptools]
-packages = [ "dns_sock",]
+packages = [ "netns_jail",]
