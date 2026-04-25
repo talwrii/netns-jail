@@ -4,18 +4,21 @@ Run a process in its own network jail. Provide some convenience functions for li
 This is unreviewed AI-generated code. However, I use it.
 
 ## Motivation
-I might be a bit oldschool, but I really dislike open sockets, unsecured sockets on localhost which allow privileged access to things. However, some services work like this and I am not about to go and match them all. The reason I describe this as oldskool is that you may choose to have one user per machine and use docker containerisation such that everyprocess having access to your localhost running all sorts of powerful things is not an issue.
+I have spent too much time on multiuser linux servers, but I really dislike running privileged services on open, unsecured ports on local host. However, some services just work like this and I am not able to patch all of them to support auth or another mechanism.
 
-This is a little jail which gives a process its own little network stack using linuxes `netns` containment. It can then optioally tunnel in secure connections using unix domain sockets.
+Thus can be solved with containerisation like docker or podman, but thus can become quiet heavy weight and start using a lot of disk.
+
+`netns-jail` provides *limited* isolation, by just wrapping the network stack (netns), while also handling nat and tunnelling, and limited privilege escalation via Saudi.
 
 
-##  Alterntives and prior work
-You can do this yourself with `netns` or use something like `docker` for complete containerisation. For some use cases I explicitly want a shared filesystem for libraries and file access. There are likely other jail systems.
+##  Alterantives and prior work
+You can do this yourself with `netns` or use something like `docker` for complete containerisation. There are likely other 
+containerisation solutions.
 
-`iptables` has some crazy modules that allow you to limit port access to certain users but this rather crazy and hard to debug.
+`iptables` has some crazy modules that allow you to limit port access to certain users but this rather magical and difficult to debug.
 
 ## Installation
-pipx install netns-jail
+`pipx install netns-jail`
 
 ## Usage
 Run something listening on localhost inside the jail
@@ -28,4 +31,5 @@ If you want to be able to connect to the internet and use dns use --nat and --dn
 
 `netns-jail --dns --nat curl https://www.google.com/`
 
+If you run with --sudoers netns will create a set of sudo rules to allow netns-jail to run without prompting for a password, if you add these rules to sudoers.
 
