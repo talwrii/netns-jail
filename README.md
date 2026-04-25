@@ -1,5 +1,7 @@
 # netns jail
-Run a process in its own network jail on linux. Provide some convenience functions for limited access.
+Run a process in its own network jail on linux. Provide some convenience functions for limited access to ports in the jail and access to the Internet.
+
+Convert TCP ports to unix domain sockets.
 
 This is unreviewed AI-generated code. However, I use it.
 
